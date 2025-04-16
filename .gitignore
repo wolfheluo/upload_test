@@ -1,0 +1,39 @@
+# 忽略日誌檔案
+upload_server.log
+
+# 忽略上傳的檔案資料夾
+uploads/
+
+# 忽略分塊上傳的暫存檔案
+chunked/
+
+# 其他通用的 Python 忽略規則
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虛擬環境
+venv/
+ENV/
+.env
+
+# IDE 配置檔案
+.idea/
+.vscode/
