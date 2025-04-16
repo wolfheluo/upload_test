@@ -11,6 +11,7 @@ import shutil
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 import html
+import magic
 
 app = Flask(__name__)
 # 設置隨機密鑰用於會話
@@ -42,8 +43,25 @@ logger = logging.getLogger(__name__)
 logger.addHandler(file_handler)
 
 def allowed_file(filename):
-    """現在接受任意檔案類型"""
-    return True
+    """檢查檔案類型是否被允許上傳
+    只允許安全的檔案類型，例如圖片、文檔等"""
+    # 定義允許的副檔名列表
+    ALLOWED_EXTENSIONS = {
+        # 文檔
+        'pdf', 'doc', 'docx', 'txt', 'rtf', 'odt', 'xls', 'xlsx', 'ppt', 'pptx',
+        # 圖片
+        'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp',
+        # 音頻
+        'mp3', 'wav', 'ogg', 'flac',
+        # 視頻
+        'mp4', 'avi', 'mov', 'mkv', 'webm',
+        # 壓縮檔
+        'zip', 'rar', '7z', 'tar', 'gz' , 'tgz', 'bz2', 'xz',
+        # 其他類型
+        'csv', 'json', 'xml', 'html', 'css', 'js', 'txt', 'log', 'md', 'yaml', 'yml'
+    }
+    # 取得副檔名並檢查
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def validate_input(input_data, pattern=None, max_length=100):
     """驗證用戶輸入，防止注入攻擊"""
@@ -85,6 +103,119 @@ def cleanup_old_chunks():
         logger.debug("Cleanup of old chunks completed")
     except Exception as e:
         logger.error(f"Error during chunks cleanup: {str(e)}")
+
+def scan_file_for_malware(file_path):
+    """
+    掃描檔案是否包含惡意內容
+    返回 True 如果檔案疑似惡意，False 如果檔案安全
+    """
+    try:
+        # 使用 python-magic 檢測文件類型
+        mime = magic.Magic(mime=True)
+        file_type = mime.from_file(file_path)
+        logger.debug(f"File {os.path.basename(file_path)} detected as: {file_type}")
+        
+        # 危險的 MIME 類型列表
+        dangerous_mimes = [
+            'application/x-dosexec',       # Windows 可執行檔
+            'application/x-executable',    # Linux 可執行檔
+            'application/x-sharedlib',     # 共享庫
+            'application/x-msdos-program', # MS-DOS 程式
+            'application/x-msdownload',    # Windows DLL
+            'text/x-script',               # 各種腳本
+            'text/x-shellscript',          # Shell 腳本
+            'text/x-perl',                 # Perl 腳本
+            'text/x-python',               # Python 腳本
+            'text/x-php',                  # PHP 腳本
+            'application/x-javascript'     # JavaScript
+        ]
+        
+        # 檢查 MIME 類型
+        if any(mime in file_type for mime in dangerous_mimes):
+            logger.warning(f"潛在危險文件類型: {file_type} for {os.path.basename(file_path)}")
+            return True
+            
+        # 讀取文件內容進行進一步分析
+        with open(file_path, 'rb') as f:
+            content = f.read(1024 * 1024)  # 讀取前 1MB 進行分析
+            
+            # 檢查是否包含可執行代碼的特徵
+            if file_type.startswith('application/zip') or file_type.startswith('application/x-rar'):
+                # 壓縮檔特殊處理，可以檢查是否包含可執行檔
+                import zipfile
+                import rarfile
+                try:
+                    if file_type.startswith('application/zip'):
+                        with zipfile.ZipFile(file_path) as zip_ref:
+                            file_list = zip_ref.namelist()
+                    else:
+                        with rarfile.RarFile(file_path) as rar_ref:
+                            file_list = rar_ref.namelist()
+                            
+                    # 檢查壓縮檔中的文件
+                    executable_extensions = ['.exe', '.bat', '.cmd', '.ps1', '.vbs', '.js', '.jar', '.sh', '.php']
+                    for f_name in file_list:
+                        if any(f_name.lower().endswith(ext) for ext in executable_extensions):
+                            logger.warning(f"壓縮檔中發現可執行檔: {f_name}")
+                            return True
+                except Exception as e:
+                    logger.error(f"檢查壓縮檔時出錯: {str(e)}")
+            
+            # 檢查文件頭是否為可執行檔
+            executable_signatures = [
+                b'MZ',           # Windows PE
+                b'\x7FELF',      # Linux ELF
+                b'\xCA\xFE\xBA\xBE', # Java Class
+                b'\xCF\xFA\xED\xFE', # Mach-O (macOS)
+                b'#!/',          # Unix 腳本
+                b'<?php',        # PHP 文件
+                b'<script'       # JavaScript in HTML
+            ]
+            
+            for sig in executable_signatures:
+                if content.startswith(sig):
+                    logger.warning(f"文件包含可執行格式特徵: {os.path.basename(file_path)}")
+                    return True
+            
+            # 檢查文件內容是否包含危險模式
+            dangerous_patterns = [
+                rb'system\s*\(',        # 系統命令執行
+                rb'exec\s*\(',          # 程式執行
+                rb'eval\s*\(',          # 代碼評估
+                rb'ProcessBuilder',     # Java 進程建立
+                rb'Runtime\.getRuntime\(\)\.exec', # Java 命令執行
+                rb'<\?php.*system\s*\(', # PHP 系統命令
+                rb'powershell',         # PowerShell 命令
+                rb'cmd\.exe',           # Windows 命令提示符
+                rb'bash -i',            # Bash shell
+                rb'nc -e',              # Netcat 反向 shell
+                rb'python -c',          # Python 命令執行
+            ]
+            
+            for pattern in dangerous_patterns:
+                if re.search(pattern, content, re.IGNORECASE):
+                    logger.warning(f"文件內容包含可疑指令: {os.path.basename(file_path)}")
+                    return True
+            
+            # 計算檔案 MD5 雜湊，可用於與已知惡意檔案資料庫比對
+            file_hash = hashlib.md5(content).hexdigest()
+            logger.debug(f"File hash: {file_hash}")
+            
+            # 這裡可以添加已知惡意檔案的雜湊值比對
+            known_malware_hashes = [
+                # 添加已知惡意檔案的雜湊值
+            ]
+            
+            if file_hash in known_malware_hashes:
+                logger.warning(f"檔案雜湊匹配已知惡意檔案: {file_hash}")
+                return True
+            
+        # 未檢測到惡意內容
+        return False
+    except Exception as e:
+        logger.error(f"掃描檔案時出錯: {str(e)}")
+        # 出錯時為安全起見，將檔案視為可疑
+        return True
 
 @app.route('/')
 def index():
@@ -136,6 +267,11 @@ def upload_chunk():
         if not validate_input(filename, None, 255):
             return jsonify({"error": "Invalid filename"}), 400
 
+        # 檢查檔案類型是否允許
+        if not allowed_file(filename):
+            logger.warning(f"文件類型不允許: {html.escape(filename)}")
+            return jsonify({"error": "文件類型不允許上傳"}), 400
+
         # 確保檔案名稱是安全的
         secure_name = secure_filename(filename)
         
@@ -173,6 +309,19 @@ def upload_chunk():
                 logger.debug(f"Temporary chunks for {upload_id} cleaned up")
             except Exception as clean_err:
                 logger.error(f"Error cleaning up chunks: {str(clean_err)}")
+            
+            # 掃描檔案是否為惡意檔案
+            if scan_file_for_malware(final_path):
+                logger.warning(f"發現惡意檔案: {html.escape(secure_name)}")
+                # 刪除惡意檔案
+                os.remove(final_path)
+                return jsonify({"error": "檔案可能包含惡意程式碼，已被拒絕"}), 400
+            
+            # 為上傳的檔案設置安全權限 (僅允許讀取，不允許執行)
+            try:
+                os.chmod(final_path, 0o644) # 設置為僅讀寫，不可執行
+            except Exception as perm_err:
+                logger.error(f"設置檔案權限錯誤: {str(perm_err)}")
             
             logger.debug(f"File {secure_name} successfully assembled from chunks")
             logger.info(f"File {html.escape(secure_name)} successfully assembled from chunks")

@@ -1,0 +1,8 @@
+flask==2.3.3
+werkzeug==2.3.7
+python-magic==0.4.27
+rarfile==4.0
+dnspython==2.4.2
+pytz==2023.3.post1
+gunicorn==21.2.0
+python-dotenv==1.0.0

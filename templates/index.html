@@ -81,6 +81,32 @@
             color: #333;
             user-select: none;
         }
+        #fileList {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .file-item {
+            padding: 5px;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .file-progress {
+            height: 5px;
+            background-color: #ddd;
+            margin-top: 3px;
+            border-radius: 3px;
+        }
+        .file-progress-fill {
+            height: 100%;
+            width: 0;
+            background-color: #4CAF50;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
     </style>
 </head>
 <body>
@@ -89,9 +115,11 @@
         <form id="uploadForm">
             <div class="file-input-wrapper">
                 <label for="fileInput">選擇要上傳的檔案:</label>
-                <input type="file" id="fileInput" required>
-                <p><small>檔案大小上限: 300GB</small></p>
+                <input type="file" id="fileInput" multiple required>
+                <p><small>檔案大小上限: 300GB，可同時選擇多個檔案</small></p>
             </div>
+            
+            <div id="fileList"></div>
             
             <div class="captcha-container">
                 <label for="captchaInput">請輸入驗證碼:</label>
@@ -103,7 +131,7 @@
         </form>
     </div>
 
-    <h3>上傳進度</h3>
+    <h3>總體上傳進度</h3>
     <div id="progressBar"><div id="progressBarFill">0%</div></div>
     <div id="status">請選擇檔案並點擊「開始上傳」</div>
 
@@ -111,6 +139,7 @@
         <h3>上傳提示</h3>
         <ul>
             <li>檔案大小不能超過 300GB</li>
+            <li>可同時選擇並上傳多個檔案</li>
             <li>上傳前必須輸入正確驗證碼</li>
             <li>上傳過程中請勿關閉或重新整理頁面</li>
             <li>上傳完成後，檔案將自動處理並儲存</li>
