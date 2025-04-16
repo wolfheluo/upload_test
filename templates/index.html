@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';">
+    <title>檔案上傳</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        #progressBar { 
+            width: 100%; 
+            background-color: #ddd; 
+            height: 30px; 
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        #progressBarFill { 
+            height: 100%; 
+            width: 0; 
+            background-color: #4CAF50; 
+            text-align: center; 
+            color: white; 
+            border-radius: 5px; 
+            line-height: 30px;
+            transition: width 0.3s;
+        }
+        #status {
+            min-height: 20px;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f8f8f8;
+        }
+        .error {
+            color: #d9534f;
+            font-weight: bold;
+        }
+        .success {
+            color: #5cb85c;
+            font-weight: bold;
+        }
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .file-input-wrapper {
+            margin-bottom: 15px;
+        }
+        .captcha-container {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .captcha-code {
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            color: #333;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <h2>檔案上傳系統</h2>
+    <div class="upload-container">
+        <form id="uploadForm">
+            <div class="file-input-wrapper">
+                <label for="fileInput">選擇要上傳的檔案:</label>
+                <input type="file" id="fileInput" required>
+                <p><small>檔案大小上限: 300GB</small></p>
+            </div>
+            
+            <div class="captcha-container">
+                <label for="captchaInput">請輸入驗證碼:</label>
+                <!--<div class="captcha-code">54552253</div>-->
+                <input type="text" id="captchaInput" required placeholder="請輸入驗證碼">
+            </div>
+            
+            <button type="button" class="btn" id="uploadButton">開始上傳</button>
+        </form>
+    </div>
+
+    <h3>上傳進度</h3>
+    <div id="progressBar"><div id="progressBarFill">0%</div></div>
+    <div id="status">請選擇檔案並點擊「開始上傳」</div>
+
+    <div class="upload-tips">
+        <h3>上傳提示</h3>
+        <ul>
+            <li>檔案大小不能超過 300GB</li>
+            <li>上傳前必須輸入正確驗證碼</li>
+            <li>上傳過程中請勿關閉或重新整理頁面</li>
+            <li>上傳完成後，檔案將自動處理並儲存</li>
+        </ul>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+</body>
+</html>
